@@ -1,154 +1,51 @@
-# bitsrun
+# bitsrun macOS 自动登录
 
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Pre-commit](https://github.com/BITNP/bitsrun/actions/workflows/ci.yml/badge.svg)](https://github.com/BITNP/bitsrun/actions/workflows/ci.yml)
-[![PyPI Publish](https://github.com/BITNP/bitsrun/actions/workflows/python-publish.yml/badge.svg)](https://github.com/BITNP/bitsrun/actions/workflows/python-publish.yml)
-[![PyPI](https://img.shields.io/pypi/v/bitsrun)](https://pypi.org/project/bitsrun/)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bitsrun)](https://pypi.org/project/bitsrun/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/bitsrun?color=orange)](https://pypi.org/project/bitsrun/)
+从 [BITNP/bitsrun](https://github.com/BITNP/bitsrun) 精简而来，只用于 macOS 有线校园网自动登录。保留上游的深澜编码算法与 WTFPL 许可证。
 
-A headless login / logout script for 10.0.0.55 at BIT.
+## 安装
 
-<table>
-  <tr>
-    <td>✨</td>
-    <td>Blazingly™ Fast Rust re-implementation of <code>bitsrun</code> available at <a href="https://github.com/spencerwooo/bitsrun-rs">spencerwooo/bitsrun</a>, if you require or prefer a single compiled executable (or 🦀 Rust).</td>
-  </tr>
-  <tr>
-    <td>🌱</td>
-    <td>A Magic Bash re-implementation of <code>bitsrun</code> available at <a href="https://github.com/BITNP/bitsrun.sh">BITNP/bitsrun.sh</a>, if you require or prefer a single bash script.</td>
-  </tr>
-</table>
+需要 macOS、Xcode Command Line Tools、[uv](https://docs.astral.sh/uv/)。首次安装需要能下载 Python 及依赖的网络。
 
-## Install
-
-You need at least **Python 3.8**. We recommend installing with `pipx`.
-
-```shell
-python3 -m pip install --user pipx
-python3 -m pipx ensurepath
+```sh
+git clone https://github.com/windlandneko/bitsrun.git
+cd bitsrun
+uv run --no-project macos/install.py
 ```
 
-After which, install `bitsrun` with `pipx`.
+按提示输入账号密码；网卡设备名可以留空自动识别。如果希望限定某个 USB 网卡，用 `networksetup -listallhardwareports` 查出设备名（例如 `en5`）再填写。
 
-```shell
-pipx install bitsrun
+程序及独立 Python 环境安装到 `~/Library/Application Support/bitsrun`，由用户级 LaunchAgent 启动。之后可以移动或删除仓库目录。无需 sudo，用户登录后自动运行。
+
+凭据位于 `~/.config/bitsrun/bit-user.json`，权限为 `600`，密码以明文保存在该文件中，不写入日志。重新安装即可修改配置。
+
+## 行为
+
+- `SCDynamicStore` 监听网卡 Link、IPv4 与全局 IPv4 变化，`NSWorkspace` 监听唤醒；启动时也检查一次。
+- 平时只等待系统事件，没有定时轮询。合并事件，等待至少 2 秒，并限制事件检查的启动间隔为至少 15 秒。
+- 只接受硬件端口名称含 Ethernet 或 LAN 的网卡。必须取得 IPv4，且通往 `10.0.0.55` 的路由经过该网卡。
+- HTTP 连接绑定该网卡 IPv4，禁用环境代理，不跟随重定向。页面包含北理工和 srun 特征后才查询状态；已有任何账号在线都跳过。
+- 使用截图中的 `http://10.0.0.55/srun_portal_pc?ac_id=43&theme=bit`，只在未登录时认证。发送凭据前再次检查路由，登录后核验账号。
+- 每次事件至多尝试 3 次；网络失败在 5 秒、15 秒后有限重试。认证拒绝或配置错误不重试。每次检查最多 60 秒。
+- 成功静默记日志；最终失败尝试发送 macOS 通知。通知显示取决于系统通知及勿扰设置。
+
+没有登出、Raycast、状态表格、跨平台支持或定时保活。服务端会话静默过期而本机没有网络变化时，无法自动发现；下一次网络事件或唤醒会再次检查。页面特征用于避免误登录，不构成服务器身份的密码学验证。
+
+## 日志与卸载
+
+```sh
+tail -n 30 ~/Library/Logs/bitsrun/auto.log
+uv run --no-project macos/install.py --uninstall
 ```
 
-Alternatively, you can download a self-contained executable from [GitHub Releases](https://github.com/BITNP/bitsrun/releases/latest) if you are working from an environment that does not have internet access.
+卸载移除 LaunchAgent 和程序，保留凭据。若要彻底删除凭据，再手动删除 `~/.config/bitsrun/bit-user.json`。
 
-## Usage
+## 验证
 
-### CLI
-
-Check login status of your device.
-
-![bitsrun status](https://github.com/BITNP/bitsrun/assets/32114380/e877d6a9-120a-444a-b580-0a0fcac857ce)
-
-```text
-Usage: bitsrun status [OPTIONS]
-
-  Check current network login status.
-
-Options:
-  --json / --no-json  Output in JSON format.
-  --help  Show this message and exit.
+```sh
+uv sync
+uv run --with pytest pytest -q
+uv tool run ruff check src macos tests
+swiftc -O macos/Watcher.swift -o macos/watcher
 ```
 
-> **Note**: this is the output of `bitsrun status --help`.
-
-Login or logout with your username and password.
-
-![bitsrun login](https://github.com/BITNP/bitsrun/assets/32114380/4ca8cd64-580b-4ab8-824f-0049f41f78bb)
-
-```text
-Usage: bitsrun login/logout [OPTIONS]
-
-  Log into or out of the BIT network.
-
-Options:
-  -u, --username TEXT  Your username.
-  -p, --password TEXT  Your password.
-  -v, --verbose        Verbosely echo API response.
-  --help               Show this message and exit.
-```
-
-> **Note**: this is the output of `bitsrun login/logout --help`.
-
-### Credentials config
-
-Create new file named `bit-user.json`:
-
-```json
-{
-    "username": "xxxx",
-    "password": "xxxx"
-}
-```
-
-This file should be put under the following directory:
-
-- Windows: `%APPDATA%\bitsrun`
-- macOS and Linux: `~/.config/bitsrun` (Following the XDG spec)
-
-**On unix, set the file permission to `600`, i.e., only read/writeable by the owner:**
-
-```shell
-chmod 600 path/to/bit-user.json
-```
-
-Now you can simply call:
-
-```shell
-bitsrun login
-bitsrun logout
-```
-
-Besides, a system-wide configuration file is supported, and the location also depends on your platform.
-
-To list all possible paths for your system (including those only for backward compatibility), call:
-
-```shell
-bitsrun config-paths
-```
-
-### Raycast script (macOS)
-
-![raycast screenshot](https://user-images.githubusercontent.com/32114380/213919582-eff6d58f-1bd2-47b2-a5da-46dc6e2eaffa.png)
-
-Import the two Raycast scripts from [`./scripts`](./scripts/) and setup your config file in `~/.config/bit-user.json`. The script uses `/usr/bin/python3` by default, so you either need to install `bitsrun` with this Python interpreter or setup your own Python interpreter path in the script.
-
-## Developing
-
-Create virtual environment and install deps:
-
-```shell
-python -m venv venv
-source venv/bin/activate
-pip install -e .
-```
-
-Running CLI entry:
-
-```shell
-python src/bitsrun/cli.py
-```
-
-Build:
-
-```shell
-pip install setuptools build
-python -m build
-```
-
-## Credits and related
-
-- [Aloxaf/10_0_0_55_login](https://github.com/Aloxaf/10_0_0_55_login) - BIT 10.0.0.55 的登入与登出的 Python 实现 (This project's predecessor, archived)
-- [spencerwooo/bitsrun-rs](https://github.com/spencerwooo/bitsrun-rs) - A Rust implementation of `bitsrun`. (Rust)
-- [zu1k/srun](https://github.com/zu1k/srun) - Srun authentication system login tools. (Rust)
-- [Mmx233/BitSrunLoginGo](https://github.com/Mmx233/BitSrunLoginGo) - 深澜校园网登录脚本 Go 语言版 (Go)
-- [vouv/srun](https://github.com/vouv/srun) - An efficient client for BIT campus network. (Go)
-
-## License
-
-[WTFPL License](LICENSE)
+模拟测试覆盖 Wi-Fi 跳过、非校园页面、已有在线会话、完整认证、认证过程中换网、断网及非法响应。测试不访问校园认证服务器。原生监听器已在 Apple Silicon macOS 编译；真实插线、唤醒和校园网认证需要在目标网络上验证。

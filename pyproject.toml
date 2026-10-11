@@ -1,60 +1,21 @@
 [project]
-name = "bitsrun"
-version = "3.7.1"
-description = "A headless login / logout script for 10.0.0.55"
-authors = [{ name = "spencerwooo", email = "spencer.woo@outlook.com" }]
-dependencies = [
-    "httpx>=0.24.0",
-    "rich>=13.3.5",
-    "humanize>=4.5.0",
-    "click>=8.1.3",
-    "platformdirs>=2.6.2",
-]
-requires-python = ">=3.8"
+name = "bitsrun-macos"
+version = "0.1.0"
+description = "Event-driven BIT Ethernet login for macOS"
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.28,<1"]
 readme = "README.md"
-license = { text = "WTFPL" }
-keywords = ["bit", "srun", "srun-login", "srun-client", "beijing-institute-of-technology"]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Education",
-    "Intended Audience :: End Users/Desktop",
-    "Intended Audience :: Information Technology",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Education",
-    "Topic :: Internet",
-]
-
-[project.urls]
-homepage = "https://github.com/BITNP/bitsrun"
+license = {text = "WTFPL"}
 
 [project.scripts]
-bitsrun = "bitsrun.cli:cli"
+bitsrun-auto = "bitsrun.auto:main"
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.ruff]
-line-length = 88
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "B", "SIM"]
-
 [tool.ruff.format]
-# Use single quotes rather than double quotes.
 quote-style = "single"
 
-[tool.mypy]
-disallow_any_unimported = true
-no_implicit_optional = true
-check_untyped_defs = true
-# disallow_untyped_defs = true
-# warn_return_any = true
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
