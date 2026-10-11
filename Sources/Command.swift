@@ -15,22 +15,18 @@ enum Bitsrun {
           """
           bitsrun — 原生、事件驱动的北理工有线校园网登录
 
-          bitsrun install     从 .env 导入钥匙串并安装后台服务
-          bitsrun install --env FILE  从本地凭据文件导入钥匙串
+          bitsrun install     安装后台服务，首次配置钥匙串
           bitsrun uninstall   卸载后台服务，保留钥匙串凭据
           bitsrun run         前台运行（用于调试）
           bitsrun check       实际检测有线网与校园网认证状态
           """)
       case ["install"]:
         try Installation.install()
-      case let arguments
-      where arguments.count == 3 && Array(arguments.prefix(2)) == ["install", "--env"]:
-        try Installation.install(env: URL(fileURLWithPath: arguments[2]).standardizedFileURL)
-      case let arguments where arguments.count == 2 && arguments[0] == "configure":
+      case ["configure"]:
         guard Bundle.main.bundleIdentifier == Installation.label else {
           throw Failure.credentials
         }
-        try CredentialStore.save(Credentials.read(URL(fileURLWithPath: arguments[1])))
+        try CredentialStore.configure()
         Task {
           await Notifications.authorize()
           exit(0)
@@ -115,11 +111,10 @@ private enum Installation {
   private static let plist = library.appendingPathComponent("LaunchAgents/\(label).plist")
   private static let domain = "gui/\(getuid())"
 
-  static func install(env: URL = URL(fileURLWithPath: ".env").standardizedFileURL) throws {
-    _ = try Credentials.read(env)
+  static func install() throws {
     let source = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
     if source == binary {
-      try activate(env: env)
+      try activate()
       return
     }
     let staging = support.appendingPathComponent("\(UUID().uuidString).app")
@@ -137,14 +132,15 @@ private enum Installation {
       "LSUIElement": true, "LSMinimumSystemVersion": "13.0",
     ]).write(to: staging.appendingPathComponent("Contents/Info.plist"), options: .atomic)
     try execute(
-      "/usr/bin/codesign", ["--force", "--sign", "-", "--identifier", label, staging.path])
+      "/usr/bin/codesign", ["--force", "--sign", "-", "--identifier", label, staging.path],
+      quiet: true)
     // Signing is deterministic: an unchanged build keeps its keychain identity.
     if files.contentsEqual(atPath: stagedBinary.path, andPath: binary.path),
       files.contentsEqual(
         atPath: staging.appendingPathComponent("Contents/Info.plist").path,
         andPath: app.appendingPathComponent("Contents/Info.plist").path)
     {
-      try activate(env: env)
+      try activate()
       return
     }
     let previousPlist = try? Data(contentsOf: plist)
@@ -157,7 +153,7 @@ private enum Installation {
       try files.moveItem(at: staging, to: app)
       replaced = true
       _ = LSRegisterURL(app as CFURL, true)
-      try execute(binary.path, ["configure", env.path])
+      try execute(binary.path, ["configure"])
       try files.createDirectory(
         at: plist.deletingLastPathComponent(), withIntermediateDirectories: true)
       let data = try propertyList([
@@ -192,8 +188,8 @@ private enum Installation {
     print("已启用；插线、网络变化或唤醒时自动检查。")
   }
 
-  private static func activate(env: URL) throws {
-    try execute(binary.path, ["configure", env.path])
+  private static func activate() throws {
+    try execute(binary.path, ["configure"])
     if (try? execute("/bin/launchctl", ["print", "\(domain)/\(label)"], quiet: true)) == nil {
       try execute("/bin/launchctl", ["bootstrap", domain, plist.path])
     } else {

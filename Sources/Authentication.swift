@@ -1,33 +1,9 @@
 import CryptoKit
 import Foundation
 
-struct Credentials: Codable, Equatable, Sendable {
+struct Credentials: Codable, Sendable {
   let username: String
   let password: String
-  let interface: String?
-
-  static func read(_ file: URL) throws -> Credentials {
-    let text = try String(contentsOf: file, encoding: .utf8)
-    var values: [String: String] = [:]
-    for line in text.components(separatedBy: .newlines) {
-      let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-      guard parts.count == 2 else { continue }
-      let key = parts[0].trimmingCharacters(in: .whitespaces)
-      var value = parts[1].trimmingCharacters(in: .whitespaces)
-      if value.count >= 2,
-        (value.hasPrefix("\"") && value.hasSuffix("\""))
-          || (value.hasPrefix("'") && value.hasSuffix("'"))
-      {
-        value = String(value.dropFirst().dropLast())
-      }
-      values[key] = value
-    }
-    guard let username = values["USERNAME"], !username.isEmpty,
-      let password = values["PASSWORD"], !password.isEmpty
-    else { throw Failure.credentials }
-    let interface = values["INTERFACE"].flatMap { $0.isEmpty ? nil : $0 }
-    return Credentials(username: username, password: password, interface: interface)
-  }
 }
 
 enum Failure: Error, Equatable {
@@ -146,14 +122,14 @@ enum Srun {
   }
 }
 
-enum Outcome: Equatable {
+enum Outcome {
   case foreignNetwork
   case unavailable
   case online
   case loggedIn
 }
 
-enum PortalState: Equatable {
+enum PortalState {
   case foreignNetwork
   case unavailable
   case online

@@ -15,12 +15,12 @@ enum CredentialStore {
     kSecAttrAccount as String: "campus",
   ]
 
-  static func load() throws -> Credentials {
+  static func load(interactive: Bool = false) throws -> Credentials {
     var request = query
     request[kSecReturnData as String] = true
     request[kSecMatchLimit as String] = kSecMatchLimitOne
     let context = LAContext()
-    context.interactionNotAllowed = true
+    context.interactionNotAllowed = !interactive
     request[kSecUseAuthenticationContext as String] = context
     var result: CFTypeRef?
     let status = SecItemCopyMatching(request as CFDictionary, &result)
@@ -32,8 +32,25 @@ enum CredentialStore {
     return credentials
   }
 
-  static func save(_ credentials: Credentials) throws {
-    if (try? load()) == credentials { return }
+  static func configure() throws {
+    do {
+      _ = try load(interactive: true)
+      return
+    } catch Failure.keychain(errSecItemNotFound) {
+      // Only the first installation asks for campus credentials.
+    }
+    guard isatty(STDIN_FILENO) != 0 else { throw Failure.credentials }
+    print("校园网账号：", terminator: "")
+    fflush(nil)
+    let username = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard let secret = getpass("校园网密码：") else { throw Failure.credentials }
+    let password = String(cString: secret)
+    memset(secret, 0, strlen(secret))
+    guard !username.isEmpty, !password.isEmpty else { throw Failure.credentials }
+    try save(Credentials(username: username, password: password))
+  }
+
+  private static func save(_ credentials: Credentials) throws {
     let attributes: [String: Any] = [
       kSecValueData as String: try JSONEncoder().encode(credentials),
       kSecAttrLabel as String: "bitsrun · 北京理工大学",
@@ -169,11 +186,8 @@ final class Service {
     let delays: [Duration] = [.seconds(5), .seconds(15)]
     for attempt in 0...delays.count {
       do {
-        let candidates = ethernet().filter {
-          credentials.interface == nil || credentials.interface == $0.interface.name
-        }
         var unavailable = false
-        for candidate in candidates {
+        for candidate in ethernet() {
           try Task.checkCancellation()
           let outcome = try await Portal(transport: HTTPClient(ethernet: candidate))
             .login(credentials: credentials, address: candidate.address)
