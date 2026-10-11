@@ -1,0 +1,7 @@
+#!/bin/zsh
+set -euo pipefail
+
+root=${0:A:h}
+swift build --package-path "$root" --configuration release --quiet
+bin_dir=$(swift build --package-path "$root" --configuration release --show-bin-path)
+exec "$bin_dir/bitsrun" "$@"

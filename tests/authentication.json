@@ -1,0 +1,53 @@
+[
+  {
+    "username": "student",
+    "password": "secret",
+    "token": "0123456789abcdef",
+    "params": {
+      "callback": "jsonp",
+      "action": "login",
+      "username": "student",
+      "password": "{MD5}6a99a91ce03f8ccc5b824205818103dc",
+      "ac_id": "43",
+      "ip": "10.1.2.3",
+      "type": 1,
+      "n": 200,
+      "info": "{SRBX1}tFBmEIaj6sPxk8uIeDt2sdfGh6eNUNbCwVWMKDnchzr3LhqLLNO6Fw4hTTHN4VMTi/bqe2ZFCLdJegGChQ45jbmfa2vMZxBmSGl92WatwCK3Ee5zIMiOjLrt+WUfAzrN",
+      "chksum": "00bd12c2e5df4a328a16f36e4b77f5b41bedc5a0"
+    }
+  },
+  {
+    "username": "a\"b\\c",
+    "password": "p\n\t",
+    "token": "abcdef0123456789",
+    "params": {
+      "callback": "jsonp",
+      "action": "login",
+      "username": "a\"b\\c",
+      "password": "{MD5}ee4f5d610f7f6b168cf641d95b42da53",
+      "ac_id": "43",
+      "ip": "10.1.2.3",
+      "type": 1,
+      "n": 200,
+      "info": "{SRBX1}9XptE89O/eIbbtPGwA96tJHenMLWtnmaxCoCHtgKZYI1GL8dPMvYN8jRD34NfMlGLK4t7/sUcW8U6uoVL5W++bb7xJTA19YGDPRrrNtItZXPBqUJZ2ZYzLHECoHI8xyo",
+      "chksum": "f3d82ce70caa864247881cc1bd5fdcd954811408"
+    }
+  },
+  {
+    "username": "用户",
+    "password": "密码🔑",
+    "token": "00112233445566778899aabbccddeeff",
+    "params": {
+      "callback": "jsonp",
+      "action": "login",
+      "username": "用户",
+      "password": "{MD5}5700ec8b904f84b4e73f6c7574baf652",
+      "ac_id": "43",
+      "ip": "10.1.2.3",
+      "type": 1,
+      "n": 200,
+      "info": "{SRBX1}+MwdXHIw4vXkOdryP8Qa9+cvZ6Hma8dyOWmOVSADsrm41Wn7JXVo5OtJHbypKfCI0xgj+mmjk4laIDFYs7c+ViSqw+WUSzgrdCmqIwx0L3b4iYFaPJKPpx5vuPCPSe2cUAAuGkQD9thMduZOZlOaQ6ihzqxZEDCJ",
+      "chksum": "d66c4e69640a07e4558e38b41e45904e01f6e507"
+    }
+  }
+]

@@ -1,9 +1,7 @@
-.venv/
-__pycache__/
-*.pyc
-*.egg-info/
-build/
-dist/
-.pytest_cache/
-.ruff_cache/
-macos/watcher
+.build/
+.swiftpm/
+.vscode/
+.DS_Store
+
+.env
+.env.*
