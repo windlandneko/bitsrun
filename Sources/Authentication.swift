@@ -122,13 +122,6 @@ enum Srun {
   }
 }
 
-enum Outcome {
-  case foreignNetwork
-  case unavailable
-  case online
-  case loggedIn
-}
-
 enum PortalState {
   case foreignNetwork
   case unavailable
@@ -163,14 +156,7 @@ struct Portal: Sendable {
     return .offline(address)
   }
 
-  func login(credentials: Credentials, address: String) async throws -> Outcome {
-    switch try await status() {
-    case .foreignNetwork: return .foreignNetwork
-    case .unavailable: return .unavailable
-    case .online: return .online
-    case .offline(let portalAddress):
-      guard portalAddress == address else { throw Failure.addressChanged }
-    }
+  func login(credentials: Credentials, address: String) async throws {
     guard !credentials.username.isEmpty, !credentials.password.isEmpty else {
       throw Failure.credentials
     }
@@ -186,8 +172,9 @@ struct Portal: Sendable {
     )
     guard result.error == "ok" else { throw Failure.rejected }
     let verified: Status = try await read("/cgi-bin/rad_user_info")
-    guard verified.userName == credentials.username else { throw Failure.response }
-    return .loggedIn
+    guard verified.userName == credentials.username, verified.onlineIP == address else {
+      throw Failure.response
+    }
   }
 
   private func read<Response: Decodable>(

@@ -89,13 +89,12 @@ enum Notifications {
 final class Service {
   private let logger = Logger(subsystem: "local.bitsrun.auto", category: "login")
   private let monitor = NWPathMonitor(requiredInterfaceType: .wiredEthernet)
-  private let clock = ContinuousClock()
   private var interfaces: [NWInterface] = []
   private var store: SCDynamicStore?
   private var wakeObserver: (any NSObjectProtocol)?
   private var signals: [any DispatchSourceSignal] = []
   private var task: Task<Void, Never>?
-  private var lastStarted: ContinuousClock.Instant?
+  private var connection: [String] = []
   private var notified = false
   private var running = false
 
@@ -128,7 +127,7 @@ final class Service {
     wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.changed() }
+      MainActor.assumeIsolated { self?.changed(force: true) }
     }
     for number in [SIGTERM, SIGINT] {
       signal(number, SIG_IGN)
@@ -155,17 +154,20 @@ final class Service {
     Ethernet.connected(interfaces, store: store)
   }
 
-  private func changed() {
+  private func changed(force: Bool = false) {
     guard running else { return }
-    // A new event invalidates the entire old attempt, including its TCP request.
+    let current = ethernet().map { "\($0.interface.name)/\($0.address)" }
+    guard force || current != connection else { return }
+    connection = current
     task?.cancel()
-    let settled = clock.now.advanced(by: .seconds(2))
-    let deadline = max(settled, lastStarted?.advanced(by: .seconds(15)) ?? settled)
+    guard !current.isEmpty else {
+      notified = false
+      return
+    }
     task = Task { [weak self] in
       guard let self else { return }
       do {
-        try await clock.sleep(until: deadline)
-        lastStarted = clock.now
+        try await Task.sleep(for: .seconds(2))
         try await authenticate()
       } catch is CancellationError {
         // Disconnects and newer events are ordinary cancellation, not failures.
@@ -181,18 +183,17 @@ final class Service {
   }
 
   private func authenticate() async throws {
-    guard !ethernet().isEmpty else { return }
-    let credentials = try CredentialStore.load()
     let delays: [Duration] = [.seconds(5), .seconds(15)]
     for attempt in 0...delays.count {
       do {
         var unavailable = false
         for candidate in ethernet() {
           try Task.checkCancellation()
-          let outcome = try await Portal(transport: HTTPClient(ethernet: candidate))
-            .login(credentials: credentials, address: candidate.address)
-          switch outcome {
-          case .loggedIn:
+          let portal = Portal(transport: HTTPClient(ethernet: candidate))
+          switch try await portal.status() {
+          case .offline(let address):
+            guard address == candidate.address else { throw Failure.addressChanged }
+            try await portal.login(credentials: CredentialStore.load(), address: address)
             logger.notice("校园网登录成功")
             notified = false
             return
@@ -212,7 +213,7 @@ final class Service {
       } catch let failure as Failure {
         guard failure.retryable, attempt < delays.count else { throw failure }
       }
-      try await clock.sleep(for: delays[attempt])
+      try await Task.sleep(for: delays[attempt])
     }
   }
 }

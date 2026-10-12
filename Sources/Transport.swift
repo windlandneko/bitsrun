@@ -12,7 +12,10 @@ struct Ethernet: Sendable {
       guard interface.type == .wiredEthernet, seen.insert(interface.name).inserted else {
         return nil
       }
-      let key = "State:/Network/Interface/\(interface.name)/IPv4" as CFString
+      let prefix = "State:/Network/Interface/\(interface.name)"
+      let link = SCDynamicStoreCopyValue(store, "\(prefix)/Link" as CFString) as? [String: Any]
+      guard link?["Active"] as? Bool != false else { return nil }
+      let key = "\(prefix)/IPv4" as CFString
       guard let state = SCDynamicStoreCopyValue(store, key) as? [String: Any],
         let addresses = state["Addresses"] as? [String],
         let address = addresses.first(where: { IPv4Address($0) != nil })
